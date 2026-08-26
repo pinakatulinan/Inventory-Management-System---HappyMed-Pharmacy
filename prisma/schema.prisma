@@ -1,0 +1,377 @@
+// HappyMed Pharmacy - Inventory Management System
+//
+// Design invariants (read before changing anything here):
+//
+//  1. ALL quantities are stored in BASE UNITS (the smallest dispensable unit,
+//     e.g. one tablet), never in packs. `unitsPerPack` exists for display and
+//     receiving convenience only. Fractional stock is not representable, by design.
+//
+//  2. StockMovement is an APPEND-ONLY ledger. Rows are never updated or deleted.
+//     A mistake is corrected by writing an offsetting ADJUSTMENT row with a reason.
+//
+//  3. Batch.quantityOnHand is a denormalised cache of the ledger. It may only be
+//     written inside the same transaction that appends the StockMovement row.
+//     `balanceAfter` on each movement lets us replay and verify the cache.
+//
+//  4. Expiry status is NEVER stored. It is a function of expiryDate and today's
+//     date, computed at query time against the expiryDate indexes.
+//
+//  5. Nothing operational is hard-deleted. Use isActive / status flags so the
+//     foreign keys of the ledger stay intact and history remains auditable.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  OWNER
+  PHARMACIST
+  STAFF
+}
+
+enum DosageForm {
+  TABLET
+  CAPSULE
+  SYRUP
+  SUSPENSION
+  INJECTION
+  OINTMENT
+  CREAM
+  GEL
+  DROPS
+  INHALER
+  SUPPOSITORY
+  PATCH
+  POWDER
+  SOLUTION
+  LOZENGE
+  OTHER
+}
+
+enum BatchStatus {
+  ACTIVE // dispensable
+  QUARANTINED // past expiry or flagged - blocked from dispensing
+  DEPLETED // quantityOnHand reached 0
+  DISPOSED // physically destroyed, recorded
+  RETURNED // sent back to supplier
+}
+
+enum MovementType {
+  RECEIPT // stock in from a supplier / purchase order
+  DISPENSE // stock out to a customer
+  ADJUSTMENT // physical count correction - signed, always needs a reason
+  DISPOSAL // expired or damaged stock written off
+  RETURN_TO_SUPPLIER // sent back to supplier
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SUBMITTED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+// ---------------------------------------------------------------------------
+// Identity, sessions and audit
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         Role      @default(STAFF)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+
+  /// Brute-force throttling. Serverless instances do not share memory, so the
+  /// counter lives in the database where every instance can see it.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
+  /// Forces a password change on next login (new accounts, admin resets).
+  mustChangePassword Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions    Session[]
+  movements   StockMovement[]
+  auditLogs   AuditLog[]
+  createdPOs  PurchaseOrder[] @relation("PurchaseOrderCreatedBy")
+  receivedPOs PurchaseOrder[] @relation("PurchaseOrderReceivedBy")
+
+  @@index([isActive])
+}
+
+/// Opaque server-side sessions. We store only a SHA-256 hash of the cookie
+/// token, so a database leak cannot be replayed as a login. Deleting the row
+/// revokes access instantly - which matters when staff leave.
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String // e.g. "product.update", "batch.dispose"
+  entity    String // e.g. "Product"
+  entityId  String?
+  summary   String // human-readable, shown directly in the audit table
+  metadata  Json? // before/after payloads
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([entity, entityId])
+  @@index([userId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Catalogue
+// ---------------------------------------------------------------------------
+
+model Category {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+
+  /// Optional per-category override of the global expiry warning window.
+  /// Useful for short-dated goods that need earlier notice.
+  expiryWarningDays Int?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+}
+
+model Supplier {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  contactPerson String?
+  email         String?
+  phone         String?
+  address       String?
+  notes         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  products       Product[]
+  purchaseOrders PurchaseOrder[]
+
+  @@index([isActive])
+}
+
+model Product {
+  id          String     @id @default(cuid())
+  sku         String     @unique
+  genericName String
+  brandName   String?
+  strength    String? // "500mg", "125mg/5mL"
+  dosageForm  DosageForm
+  description String?
+
+  categoryId String
+  supplierId String?
+
+  /// Smallest dispensable unit - the unit ALL quantities are stored in.
+  baseUnit String @default("piece")
+
+  /// How the item arrives from the supplier ("box", "bottle"). Display only.
+  packUnit String?
+
+  /// Base units contained in one pack. Display / receiving helper only.
+  unitsPerPack Int @default(1)
+
+  /// Retail price per BASE UNIT.
+  sellingPrice Decimal @db.Decimal(12, 4)
+
+  /// Low-stock threshold, in BASE UNITS.
+  reorderPoint Int @default(0)
+
+  isRxOnly              Boolean @default(false)
+  requiresRefrigeration Boolean @default(false)
+  isActive              Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  category  Category            @relation(fields: [categoryId], references: [id])
+  supplier  Supplier?           @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  batches   Batch[]
+  poItems   PurchaseOrderItem[]
+  movements StockMovement[]
+
+  @@index([genericName])
+  @@index([brandName])
+  @@index([categoryId])
+  @@index([supplierId])
+  @@index([isActive])
+}
+
+// ---------------------------------------------------------------------------
+// Stock: batches and the movement ledger
+// ---------------------------------------------------------------------------
+
+/// A physical lot of one product with a single expiry date. Expiry lives here,
+/// never on Product - the same medicine routinely sits on the shelf under
+/// several lot numbers with different expiry dates.
+model Batch {
+  id         String   @id @default(cuid())
+  productId  String
+  lotNumber  String
+  expiryDate DateTime @db.Date
+
+  receivedDate DateTime @default(now()) @db.Date
+
+  /// Acquisition cost per BASE UNIT, for margin and stock-value reporting.
+  costPerUnit Decimal @db.Decimal(12, 4)
+
+  quantityReceived Int
+
+  /// Denormalised cache of the ledger. Write only inside a transaction that
+  /// also appends the corresponding StockMovement row.
+  quantityOnHand Int
+
+  status BatchStatus @default(ACTIVE)
+
+  purchaseOrderId String?
+  notes           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product       Product         @relation(fields: [productId], references: [id])
+  purchaseOrder PurchaseOrder?  @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  movements     StockMovement[]
+
+  @@unique([productId, lotNumber])
+  @@index([expiryDate])
+  @@index([status, expiryDate])
+  /// Drives the FEFO pick: soonest-expiring ACTIVE batch of a given product.
+  @@index([productId, status, expiryDate])
+}
+
+/// Append-only. Never UPDATE, never DELETE.
+model StockMovement {
+  id      String @id @default(cuid())
+  batchId String
+
+  /// Denormalised from Batch so product-level reports avoid a join.
+  productId String
+
+  type MovementType
+
+  /// Signed: positive adds stock, negative removes it.
+  quantity Int
+
+  /// Batch.quantityOnHand immediately after this movement was applied.
+  balanceAfter Int
+
+  reason        String?
+  referenceType String? // "PurchaseOrder", "DisposalCertificate", ...
+  referenceId   String?
+
+  userId    String
+  createdAt DateTime @default(now())
+
+  batch   Batch   @relation(fields: [batchId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([batchId, createdAt])
+  @@index([productId, createdAt])
+  @@index([type, createdAt])
+  @@index([createdAt])
+  @@index([userId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Procurement
+// ---------------------------------------------------------------------------
+
+model PurchaseOrder {
+  id         String              @id @default(cuid())
+  poNumber   String              @unique
+  supplierId String
+  status     PurchaseOrderStatus @default(DRAFT)
+
+  orderDate    DateTime  @default(now()) @db.Date
+  expectedDate DateTime? @db.Date
+  receivedDate DateTime? @db.Date
+  notes        String?
+
+  createdById  String
+  receivedById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+  createdBy  User     @relation("PurchaseOrderCreatedBy", fields: [createdById], references: [id])
+  receivedBy User?    @relation("PurchaseOrderReceivedBy", fields: [receivedById], references: [id], onDelete: SetNull)
+
+  items   PurchaseOrderItem[]
+  batches Batch[]
+
+  @@index([status])
+  @@index([supplierId, status])
+  @@index([orderDate])
+}
+
+model PurchaseOrderItem {
+  id              String @id @default(cuid())
+  purchaseOrderId String
+  productId       String
+
+  /// Both in BASE UNITS.
+  quantityOrdered  Int
+  quantityReceived Int @default(0)
+
+  unitCost Decimal @db.Decimal(12, 4)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id])
+
+  @@unique([purchaseOrderId, productId])
+  @@index([productId])
+}
+
+// ---------------------------------------------------------------------------
+// Configuration
+// ---------------------------------------------------------------------------
+
+/// Key/value app settings so the pharmacist can tune thresholds without a deploy.
+/// Seeded keys: expiry.criticalDays, expiry.warningDays, alerts.digestEnabled,
+/// alerts.digestRecipients, pharmacy.name.
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

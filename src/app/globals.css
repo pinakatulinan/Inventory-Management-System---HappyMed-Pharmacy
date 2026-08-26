@@ -1,0 +1,241 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ---------------------------------------------------------------------------
+   HappyMed Pharmacy theme
+   ---------------------------------------------------------------------------
+   Brand: emerald green on white.
+
+   IMPORTANT: the expiry/stock status colours below are deliberately OUTSIDE the
+   brand palette. They are safety signals - an expired-medicine warning must not
+   read as "brand green". Never restyle them to match the brand.
+--------------------------------------------------------------------------- */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* Brand green, exposed as utilities: text-brand-700, bg-brand-50, ... */
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-brand-950: var(--brand-950);
+
+  /* Status signals: bg-status-critical-soft, text-status-critical, ... */
+  --color-status-expired: var(--status-expired);
+  --color-status-expired-soft: var(--status-expired-soft);
+  --color-status-expired-border: var(--status-expired-border);
+  --color-status-critical: var(--status-critical);
+  --color-status-critical-soft: var(--status-critical-soft);
+  --color-status-critical-border: var(--status-critical-border);
+  --color-status-warning: var(--status-warning);
+  --color-status-warning-soft: var(--status-warning-soft);
+  --color-status-warning-border: var(--status-warning-border);
+  --color-status-ok: var(--status-ok);
+  --color-status-ok-soft: var(--status-ok-soft);
+  --color-status-ok-border: var(--status-ok-border);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /* Brand ramp (emerald) */
+  --brand-50: oklch(0.979 0.021 166.113);
+  --brand-100: oklch(0.95 0.052 163.051);
+  --brand-200: oklch(0.905 0.093 164.15);
+  --brand-300: oklch(0.845 0.143 164.978);
+  --brand-400: oklch(0.765 0.177 163.223);
+  --brand-500: oklch(0.696 0.17 162.48);
+  --brand-600: oklch(0.596 0.145 163.225);
+  --brand-700: oklch(0.508 0.118 165.612);
+  --brand-800: oklch(0.432 0.095 166.913);
+  --brand-900: oklch(0.378 0.077 168.94);
+  --brand-950: oklch(0.262 0.051 172.552);
+
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.21 0.03 258);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.03 258);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.03 258);
+
+  /* brand-600: use for solid fills and large text only (~3.7:1 on white).
+     For body-size text on white use --brand-700 (~5.1:1). */
+  --primary: var(--brand-600);
+  --primary-foreground: oklch(1 0 0);
+
+  --secondary: oklch(0.968 0.007 247.896);
+  --secondary-foreground: oklch(0.279 0.041 260.031);
+
+  --muted: oklch(0.968 0.007 247.896);
+  --muted-foreground: oklch(0.554 0.046 257.417);
+
+  /* Green tint used for selected rows, active nav and soft badges */
+  --accent: var(--brand-50);
+  --accent-foreground: var(--brand-800);
+
+  --destructive: oklch(0.577 0.245 27.325);
+
+  --border: oklch(0.929 0.013 255.508);
+  --input: oklch(0.929 0.013 255.508);
+  --ring: var(--brand-600);
+
+  /* Charts: brand-led, with a neutral and an amber for contrast series */
+  --chart-1: var(--brand-600);
+  --chart-2: var(--brand-400);
+  --chart-3: var(--brand-800);
+  --chart-4: oklch(0.769 0.188 70.08);
+  --chart-5: oklch(0.554 0.046 257.417);
+
+  --radius: 0.625rem;
+
+  /* Status signals - safety colours, intentionally not brand green */
+  --status-expired: oklch(0.505 0.213 27.518);
+  --status-expired-soft: oklch(0.971 0.013 17.38);
+  --status-expired-border: oklch(0.885 0.062 18.334);
+
+  --status-critical: oklch(0.588 0.208 39.5);
+  --status-critical-soft: oklch(0.98 0.016 73.684);
+  --status-critical-border: oklch(0.901 0.076 70.697);
+
+  --status-warning: oklch(0.555 0.163 48.998);
+  --status-warning-soft: oklch(0.987 0.022 95.277);
+  --status-warning-border: oklch(0.924 0.12 95.746);
+
+  --status-ok: var(--brand-700);
+  --status-ok-soft: var(--brand-50);
+  --status-ok-border: var(--brand-200);
+
+  --sidebar: oklch(0.988 0.005 165);
+  --sidebar-foreground: oklch(0.21 0.03 258);
+  --sidebar-primary: var(--brand-600);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: var(--brand-50);
+  --sidebar-accent-foreground: var(--brand-800);
+  --sidebar-border: oklch(0.929 0.013 255.508);
+  --sidebar-ring: var(--brand-600);
+}
+
+.dark {
+  --background: oklch(0.19 0.02 250);
+  --foreground: oklch(0.97 0.005 250);
+
+  --card: oklch(0.24 0.022 252);
+  --card-foreground: oklch(0.97 0.005 250);
+  --popover: oklch(0.24 0.022 252);
+  --popover-foreground: oklch(0.97 0.005 250);
+
+  --primary: var(--brand-500);
+  --primary-foreground: oklch(0.19 0.02 250);
+
+  --secondary: oklch(0.29 0.025 254);
+  --secondary-foreground: oklch(0.97 0.005 250);
+
+  --muted: oklch(0.29 0.025 254);
+  --muted-foreground: oklch(0.72 0.03 256);
+
+  --accent: oklch(0.32 0.045 168);
+  --accent-foreground: var(--brand-200);
+
+  --destructive: oklch(0.704 0.191 22.216);
+
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: var(--brand-500);
+
+  --chart-1: var(--brand-500);
+  --chart-2: var(--brand-300);
+  --chart-3: var(--brand-700);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.72 0.03 256);
+
+  --status-expired: oklch(0.75 0.16 22);
+  --status-expired-soft: oklch(0.3 0.07 22);
+  --status-expired-border: oklch(0.44 0.12 22);
+
+  --status-critical: oklch(0.78 0.15 55);
+  --status-critical-soft: oklch(0.31 0.06 55);
+  --status-critical-border: oklch(0.46 0.1 55);
+
+  --status-warning: oklch(0.85 0.15 90);
+  --status-warning-soft: oklch(0.32 0.055 90);
+  --status-warning-border: oklch(0.47 0.09 90);
+
+  --status-ok: var(--brand-400);
+  --status-ok-soft: oklch(0.3 0.05 168);
+  --status-ok-border: oklch(0.44 0.08 168);
+
+  --sidebar: oklch(0.22 0.022 252);
+  --sidebar-foreground: oklch(0.97 0.005 250);
+  --sidebar-primary: var(--brand-500);
+  --sidebar-primary-foreground: oklch(0.19 0.02 250);
+  --sidebar-accent: oklch(0.32 0.045 168);
+  --sidebar-accent-foreground: var(--brand-200);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: var(--brand-500);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  /* Tabular figures everywhere quantities and money are shown */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
