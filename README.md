@@ -2,6 +2,12 @@
 
 Batch-level inventory and expiry tracking for HappyMed Pharmacy.
 
+> **Looking for how to _use_ the system rather than how to run it?**
+> **[User manual](docs/user-manual.md)** — every task, by role, in plain language.
+> **[Quick guide](docs/staff-guide.md)** — the one-page version to hand to staff.
+>
+> The rest of this file is for whoever maintains the code.
+
 ## What it does
 
 Tracks what is on the shelf, records every movement in and out, and warns about

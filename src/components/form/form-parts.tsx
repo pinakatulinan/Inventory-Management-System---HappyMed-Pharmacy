@@ -1,11 +1,49 @@
 "use client";
 
+import { createContext, useContext } from "react";
 import { AlertCircle, LoaderCircle } from "lucide-react";
 import { useFormStatus } from "react-dom";
 
+import type { SubmittedValues } from "@/components/form/use-action";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+
+const SubmittedValuesContext = createContext<SubmittedValues | undefined>(
+  undefined,
+);
+
+/**
+ * Wrap a form in this and every Field inside will restore what the user typed
+ * after a failed submit, instead of reverting to the stored value. Pass the
+ * third element returned by `useAction`.
+ */
+export function FormValues({
+  values,
+  children,
+}: {
+  values: SubmittedValues | undefined;
+  children: React.ReactNode;
+}) {
+  return (
+    <SubmittedValuesContext.Provider value={values}>
+      {children}
+    </SubmittedValuesContext.Provider>
+  );
+}
+
+/**
+ * Whether a submit has come back rejected. Checkboxes need this: an unticked
+ * box sends nothing at all, so its absence from the submitted values only means
+ * "unticked" if there was a submission to be absent from.
+ */
+export function useWasRejected(): boolean {
+  return useContext(SubmittedValuesContext) !== undefined;
+}
+
+export function useSubmittedValue(name: string): string | undefined {
+  return useContext(SubmittedValuesContext)?.[name];
+}
 
 /**
  * Shared form furniture. Every create/edit screen in the app is built from
@@ -77,6 +115,7 @@ export function Field({
   error,
   required,
   className,
+  defaultValue,
   children,
 }: {
   name: string;
@@ -85,13 +124,17 @@ export function Field({
   error?: string;
   required?: boolean;
   className?: string;
+  /** The stored value. A rejected submission's value wins over it. */
+  defaultValue?: string;
   children: (props: {
     id: string;
     name: string;
+    defaultValue: string | undefined;
     "aria-invalid": boolean;
     "aria-describedby": string | undefined;
   }) => React.ReactNode;
 }) {
+  const submitted = useSubmittedValue(name);
   const id = `field-${name}`;
   const errorId = `${id}-error`;
   const hintId = `${id}-hint`;
@@ -114,6 +157,7 @@ export function Field({
       {children({
         id,
         name,
+        defaultValue: submitted ?? defaultValue,
         "aria-invalid": Boolean(error),
         "aria-describedby": describedBy,
       })}

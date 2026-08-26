@@ -1,8 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { toast } from "sonner";
 
 import {
   createProductAction,
@@ -12,8 +11,10 @@ import {
   Field,
   FormError,
   FormSection,
+  FormValues,
   SubmitButton,
 } from "@/components/form/form-parts";
+import { useAction } from "@/components/form/use-action";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -27,7 +28,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { DosageForm } from "@/generated/prisma/enums";
-import type { ActionResult } from "@/lib/actions";
 import { fromBaseUnits } from "@/lib/units";
 
 export const DOSAGE_FORM_LABELS: Record<DosageForm, string> = {
@@ -100,9 +100,8 @@ export function ProductForm({
   currency: string;
 }) {
   const isEdit = Boolean(product);
-  const [state, formAction] = useActionState<ActionResult, FormData>(
+  const [state, formAction, submitted] = useAction(
     isEdit ? updateProductAction : createProductAction,
-    { ok: true },
   );
 
   const [dosageForm, setDosageForm] = useState<DosageForm>(
@@ -113,11 +112,12 @@ export function ProductForm({
   const [unitsPerPack, setUnitsPerPack] = useState(product?.unitsPerPack ?? 1);
   const [reorderPoint, setReorderPoint] = useState(product?.reorderPoint ?? 0);
 
-  useEffect(() => {
-    if (state.ok && state.message) toast.success(state.message);
-  }, [state]);
-
   const err = (name: string) => (state.ok ? undefined : state.fieldErrors?.[name]);
+
+  // A checkbox posts nothing when unticked, so "absent from the submitted
+  // values" only means unticked once there has actually been a submission.
+  const checkedValue = (name: string, stored: boolean | undefined) =>
+    submitted ? submitted[name] !== undefined : Boolean(stored);
 
   // Only suggest a base unit while creating; changing it later is blocked once
   // stock exists, and silently rewriting it would be worse than leaving it.
@@ -135,7 +135,8 @@ export function ProductForm({
       : null;
 
   return (
-    <form action={formAction} className="space-y-6">
+    <FormValues values={submitted}>
+      <form action={formAction} className="space-y-6">
       {isEdit ? <input type="hidden" name="id" value={product!.id} /> : null}
 
       <div className="space-y-8 rounded-xl border bg-card p-6 shadow-xs">
@@ -146,24 +147,26 @@ export function ProductForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
               name="genericName"
+              defaultValue={product?.genericName}
               label="Generic name"
               required
               error={err("genericName")}
               hint="The active ingredient, e.g. Paracetamol."
             >
               {(props) => (
-                <Input {...props} defaultValue={product?.genericName} required />
+                <Input {...props} required />
               )}
             </Field>
 
             <Field
               name="brandName"
+              defaultValue={product?.brandName ?? ""}
               label="Brand name"
               error={err("brandName")}
               hint="What is printed on the box, e.g. Biogesic."
             >
               {(props) => (
-                <Input {...props} defaultValue={product?.brandName ?? ""} />
+                <Input {...props} />
               )}
             </Field>
           </div>
@@ -171,6 +174,7 @@ export function ProductForm({
           <div className="grid gap-4 sm:grid-cols-3">
             <Field
               name="sku"
+              defaultValue={product?.sku}
               label="Stock code"
               required
               error={err("sku")}
@@ -179,7 +183,6 @@ export function ProductForm({
               {(props) => (
                 <Input
                   {...props}
-                  defaultValue={product?.sku}
                   className="font-mono uppercase"
                   required
                 />
@@ -188,12 +191,13 @@ export function ProductForm({
 
             <Field
               name="strength"
+              defaultValue={product?.strength ?? ""}
               label="Strength"
               error={err("strength")}
               hint="e.g. 500mg, 125mg/5mL."
             >
               {(props) => (
-                <Input {...props} defaultValue={product?.strength ?? ""} />
+                <Input {...props} />
               )}
             </Field>
 
@@ -222,12 +226,13 @@ export function ProductForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
               name="categoryId"
+              defaultValue={product?.categoryId}
               label="Category"
               required
               error={err("categoryId")}
             >
               {(props) => (
-                <Select name={props.name} defaultValue={product?.categoryId}>
+                <Select name={props.name} defaultValue={props.defaultValue}>
                   <SelectTrigger id={props.id} aria-invalid={props["aria-invalid"]}>
                     <SelectValue placeholder="Choose a category" />
                   </SelectTrigger>
@@ -244,6 +249,7 @@ export function ProductForm({
 
             <Field
               name="supplierId"
+              defaultValue={product?.supplierId ?? "none"}
               label="Default supplier"
               error={err("supplierId")}
               hint="Used to pre-fill purchase orders."
@@ -251,7 +257,7 @@ export function ProductForm({
               {(props) => (
                 <Select
                   name={props.name}
-                  defaultValue={product?.supplierId ?? "none"}
+                  defaultValue={props.defaultValue}
                 >
                   <SelectTrigger id={props.id}>
                     <SelectValue placeholder="None" />
@@ -269,12 +275,11 @@ export function ProductForm({
             </Field>
           </div>
 
-          <Field name="description" label="Notes" error={err("description")}>
+          <Field name="description" defaultValue={product?.description ?? ""} label="Notes" error={err("description")}>
             {(props) => (
               <Textarea
                 {...props}
                 rows={2}
-                defaultValue={product?.description ?? ""}
               />
             )}
           </Field>
@@ -356,6 +361,7 @@ export function ProductForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
               name="sellingPrice"
+              defaultValue={product?.sellingPrice ?? "0"}
               label={`Selling price per ${baseUnit || "unit"} (${currency})`}
               required
               error={err("sellingPrice")}
@@ -366,7 +372,6 @@ export function ProductForm({
                   type="number"
                   step="0.0001"
                   min={0}
-                  defaultValue={product?.sellingPrice ?? "0"}
                   required
                 />
               )}
@@ -405,7 +410,8 @@ export function ProductForm({
               <Checkbox
                 id="isRxOnly"
                 name="isRxOnly"
-                defaultChecked={product?.isRxOnly}
+                defaultChecked={checkedValue("isRxOnly", product?.isRxOnly)}
+                key={`rx-${submitted ? "r" : "i"}`}
               />
               <div>
                 <Label htmlFor="isRxOnly" className="font-normal">
@@ -421,7 +427,8 @@ export function ProductForm({
               <Checkbox
                 id="requiresRefrigeration"
                 name="requiresRefrigeration"
-                defaultChecked={product?.requiresRefrigeration}
+                defaultChecked={checkedValue("requiresRefrigeration", product?.requiresRefrigeration)}
+                key={`fridge-${submitted ? "r" : "i"}`}
               />
               <div>
                 <Label htmlFor="requiresRefrigeration" className="font-normal">
@@ -446,6 +453,7 @@ export function ProductForm({
         </Button>
         <SubmitButton>{isEdit ? "Save changes" : "Create product"}</SubmitButton>
       </div>
-    </form>
+      </form>
+    </FormValues>
   );
 }
