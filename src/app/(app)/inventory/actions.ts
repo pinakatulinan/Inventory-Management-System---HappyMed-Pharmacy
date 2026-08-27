@@ -267,3 +267,116 @@ export async function setBatchQuarantineAction(
     return toActionError(error);
   }
 }
+
+const expirySchema = z.object({
+  batchId: z.string().min(1),
+  expiryDate: z.coerce.date({ error: "Enter the expiry date from the box." }),
+});
+
+/**
+ * Correct the expiry date recorded against one batch.
+ *
+ * Expiry belongs to the batch rather than the product, because the same medicine
+ * sits on the shelf as several boxes with different dates. The product edit
+ * screen therefore offers one field per batch instead of a single field for the
+ * product as a whole.
+ *
+ * Setting a real date on a quarantined batch releases it: quarantine on imported
+ * stock exists precisely because nobody had read the box yet, and typing the date
+ * off it is that check. An already-expired box is the exception and stays blocked.
+ */
+export async function updateBatchExpiryAction(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const actor = await assertPermission("stock.adjust");
+
+    const parsed = expirySchema.safeParse({
+      batchId: formData.get("batchId"),
+      expiryDate: formData.get("expiryDate"),
+    });
+    if (!parsed.success) {
+      return actionError("Check the date.", fieldErrorsFrom(parsed.error));
+    }
+    const { batchId, expiryDate } = parsed.data;
+
+    const batch = await prisma.batch.findUnique({
+      where: { id: batchId },
+      select: {
+        lotNumber: true,
+        status: true,
+        productId: true,
+        expiryDate: true,
+      },
+    });
+    if (!batch) return actionError("That batch no longer exists.");
+
+    if (batch.status === "DISPOSED" || batch.status === "RETURNED") {
+      return actionError(
+        "This batch has already left the pharmacy, so its expiry date cannot be changed.",
+      );
+    }
+
+    // A date input yields a civil date; store UTC midnight so it stays the same
+    // calendar day everywhere, matching how receiveStock writes expiry.
+    const civil = new Date(
+      Date.UTC(
+        expiryDate.getUTCFullYear(),
+        expiryDate.getUTCMonth(),
+        expiryDate.getUTCDate(),
+      ),
+    );
+
+    if (civil.getTime() === batch.expiryDate.getTime()) {
+      return actionOk(undefined, "That is already the recorded expiry date.");
+    }
+
+    const { todayDate } = await getSettings();
+    const expired = civil.getTime() < todayDate.getTime();
+    const wasQuarantined = batch.status === "QUARANTINED";
+    const release = wasQuarantined && !expired;
+
+    await prisma.batch.update({
+      where: { id: batchId },
+      data: {
+        expiryDate: civil,
+        ...(release ? { status: "ACTIVE", notes: null } : {}),
+      },
+    });
+
+    await recordAudit({
+      userId: actor.id,
+      action: "batch.expiry",
+      entity: "Batch",
+      entityId: batchId,
+      summary:
+        `Expiry for lot ${batch.lotNumber} changed from ` +
+        `${batch.expiryDate.toISOString().slice(0, 10)} to ${civil.toISOString().slice(0, 10)}` +
+        (release ? " and released from quarantine" : ""),
+      metadata: {
+        expiryDate: {
+          from: batch.expiryDate.toISOString().slice(0, 10),
+          to: civil.toISOString().slice(0, 10),
+        },
+      },
+    });
+
+    revalidateStockViews(batch.productId);
+
+    if (expired && wasQuarantined) {
+      return actionOk(
+        undefined,
+        `Lot ${batch.lotNumber} has already expired. It stays quarantined - dispose of it.`,
+      );
+    }
+    return actionOk(
+      undefined,
+      release
+        ? `Lot ${batch.lotNumber} updated and released for dispensing.`
+        : `Expiry date for lot ${batch.lotNumber} updated.`,
+    );
+  } catch (error) {
+    return toActionError(error);
+  }
+}

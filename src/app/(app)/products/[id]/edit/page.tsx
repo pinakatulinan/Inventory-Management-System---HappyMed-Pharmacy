@@ -5,10 +5,15 @@ import { ArrowLeft } from "lucide-react";
 
 import { ProductForm } from "@/app/(app)/products/product-form";
 import { DiscontinueProduct } from "@/app/(app)/products/discontinue-product";
+import { ExpiryEditor } from "@/app/(app)/products/expiry-editor";
 import { PageHeader } from "@/components/page-header";
+import { can } from "@/lib/auth/rbac";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
+
+/** Written by the opening-stock import; not a date anyone read off a box. */
+const PLACEHOLDER_EXPIRY = "2099-12-31";
 
 export const metadata: Metadata = { title: "Edit product" };
 export const dynamic = "force-dynamic";
@@ -18,7 +23,7 @@ export default async function EditProductPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requirePermission("catalogue.manage");
+  const user = await requirePermission("catalogue.manage");
   const settings = await getSettings();
   const { id } = await params;
 
@@ -44,6 +49,19 @@ export default async function EditProductPage({
         requiresRefrigeration: true,
         isActive: true,
         _count: { select: { batches: true } },
+        // Stock still physically present. Disposed and returned boxes are gone,
+        // so their dates are history and not editable.
+        batches: {
+          where: { status: { in: ["ACTIVE", "QUARANTINED", "DEPLETED"] } },
+          orderBy: [{ expiryDate: "asc" }, { id: "asc" }],
+          select: {
+            id: true,
+            lotNumber: true,
+            expiryDate: true,
+            quantityOnHand: true,
+            status: true,
+          },
+        },
       },
     }),
     prisma.category.findMany({
@@ -99,6 +117,23 @@ export default async function EditProductPage({
           suppliers={suppliers}
           currency={settings.currency}
         />
+
+        {can(user.role, "stock.adjust") ? (
+          <ExpiryEditor
+            baseUnit={product.baseUnit}
+            batches={product.batches.map((b) => {
+              const iso = b.expiryDate.toISOString().slice(0, 10);
+              return {
+                id: b.id,
+                lotNumber: b.lotNumber,
+                expiryDate: iso,
+                quantityOnHand: b.quantityOnHand,
+                status: b.status,
+                unverified: iso === PLACEHOLDER_EXPIRY,
+              };
+            })}
+          />
+        ) : null}
 
         <DiscontinueProduct
           productId={product.id}
