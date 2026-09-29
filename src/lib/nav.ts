@@ -16,6 +16,8 @@ export interface NavItem {
   permission: Permission;
   /** Match nested routes too, e.g. /products/abc highlights "Products". */
   matchPrefix?: boolean;
+  /** Hidden from these roles even if the permission allows it, to keep their menu short. */
+  hideFor?: Role[];
 }
 
 export interface NavSection {
@@ -29,20 +31,20 @@ const NAV: NavSection[] = [
     items: [
       {
         href: "/dashboard",
-        label: "Dashboard",
+        label: "Home",
         icon: "LayoutDashboard",
         permission: "inventory.view",
       },
       {
         href: "/expiry",
-        label: "Expiry alerts",
+        label: "Expiring soon",
         icon: "CalendarClock",
         permission: "inventory.view",
         matchPrefix: true,
       },
       {
         href: "/inventory",
-        label: "Stock on hand",
+        label: "Check stock",
         icon: "Boxes",
         permission: "inventory.view",
         matchPrefix: true,
@@ -68,10 +70,11 @@ const NAV: NavSection[] = [
     items: [
       {
         href: "/products",
-        label: "Products",
+        label: "Items",
         icon: "Pill",
         permission: "inventory.view",
         matchPrefix: true,
+        hideFor: ["STAFF"],
       },
       {
         href: "/suppliers",
@@ -128,7 +131,9 @@ const NAV: NavSection[] = [
 export function navigationFor(role: Role): NavSection[] {
   return NAV.map((section) => ({
     ...section,
-    items: section.items.filter((item) => can(role, item.permission)),
+    items: section.items.filter(
+      (item) => can(role, item.permission) && !item.hideFor?.includes(role),
+    ),
   })).filter((section) => section.items.length > 0);
 }
 

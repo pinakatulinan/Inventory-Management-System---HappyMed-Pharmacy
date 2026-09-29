@@ -80,7 +80,7 @@ function BatchExpiryRow({ batch, baseUnit }: { batch: EditableBatch; baseUnit: s
 }
 
 /**
- * Expiry lives on the batch, not the product: one medicine routinely sits on the
+ * Expiry lives on the batch, not the product: one item routinely sits on the
  * shelf as several boxes with different dates. So this offers one field per
  * batch rather than a single field for the product, which would have to
  * overwrite every box with the same date.

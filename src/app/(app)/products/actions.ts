@@ -34,14 +34,23 @@ const DOSAGE_FORMS = [
   "OTHER",
 ] as const;
 
+const ITEM_TYPES = [
+  "MEDICINE",
+  "SUPPLEMENT",
+  "PERSONAL_CARE",
+  "MEDICAL_SUPPLY",
+  "OTHER",
+] as const;
+
 const productSchema = z.object({
+  itemType: z.enum(ITEM_TYPES),
   sku: z
     .string()
     .trim()
     .min(2, "Enter a stock code.")
     .max(40)
     .regex(/^[A-Za-z0-9._-]+$/, "Letters, numbers, dots, dashes and underscores only."),
-  genericName: z.string().trim().min(2, "Enter the generic name.").max(120),
+  genericName: z.string().trim().min(2, "Enter the name.").max(120),
   brandName: z.string().trim().max(120).optional().or(z.literal("")),
   strength: z.string().trim().max(60).optional().or(z.literal("")),
   dosageForm: z.enum(DOSAGE_FORMS),
@@ -67,7 +76,8 @@ const productSchema = z.object({
 });
 
 function readProduct(formData: FormData) {
-  return productSchema.safeParse({
+  const result = productSchema.safeParse({
+    itemType: formData.get("itemType") ?? "MEDICINE",
     sku: formData.get("sku"),
     genericName: formData.get("genericName"),
     brandName: formData.get("brandName") ?? "",
@@ -84,6 +94,14 @@ function readProduct(formData: FormData) {
     isRxOnly: formData.get("isRxOnly") === "on",
     requiresRefrigeration: formData.get("requiresRefrigeration") === "on",
   });
+
+  // Dosage form and prescription-only only mean something for items. Enforce
+  // that here rather than trusting the form to have hidden them.
+  if (result.success && result.data.itemType !== "MEDICINE") {
+    result.data.dosageForm = "OTHER";
+    result.data.isRxOnly = false;
+  }
+  return result;
 }
 
 const nullIfBlank = (v: string | undefined) =>
@@ -130,6 +148,7 @@ export async function createProductAction(
     const created = await prisma.product.create({
       data: {
         sku,
+        itemType: parsed.data.itemType,
         genericName: parsed.data.genericName,
         brandName: nullIfBlank(parsed.data.brandName),
         strength: nullIfBlank(parsed.data.strength),
@@ -188,6 +207,7 @@ export async function updateProductAction(
       where: { id },
       select: {
         sku: true,
+        itemType: true,
         genericName: true,
         brandName: true,
         strength: true,
@@ -205,7 +225,7 @@ export async function updateProductAction(
         _count: { select: { batches: true } },
       },
     });
-    if (!before) return actionError("That product no longer exists.");
+    if (!before) return actionError("That item no longer exists.");
 
     const sku = parsed.data.sku.toUpperCase();
 
@@ -220,6 +240,7 @@ export async function updateProductAction(
 
     const next = {
       sku,
+      itemType: parsed.data.itemType,
       genericName: parsed.data.genericName,
       brandName: nullIfBlank(parsed.data.brandName),
       strength: nullIfBlank(parsed.data.strength),
@@ -283,7 +304,7 @@ export async function setProductActiveAction(
         },
       },
     });
-    if (!product) return actionError("That product no longer exists.");
+    if (!product) return actionError("That item no longer exists.");
 
     const onHand = product.batches.reduce((n, b) => n + b.quantityOnHand, 0);
     const label = product.brandName ?? product.genericName;

@@ -14,7 +14,7 @@ import { getSettings } from "@/lib/settings";
 import { formatMoney, formatQuantity, toNumber } from "@/lib/units";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Expiry alerts" };
+export const metadata: Metadata = { title: "Expiring soon" };
 export const dynamic = "force-dynamic";
 
 const FILTERS = [
@@ -72,7 +72,7 @@ export default async function ExpiryPage({
   return (
     <>
       <PageHeader
-        title="Expiry alerts"
+        title="Expiring soon"
         description={`Batches expiring within ${settings.expiry.warningDays} days, soonest first. Expired stock is quarantined automatically and cannot be dispensed.`}
       />
 
@@ -162,7 +162,7 @@ export default async function ExpiryPage({
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
                   <th scope="col" className="px-5 py-3 font-medium">
-                    Medicine
+                    Item
                   </th>
                   <th scope="col" className="px-3 py-3 font-medium">
                     Lot

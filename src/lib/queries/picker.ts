@@ -44,3 +44,16 @@ export async function getPickerProducts(
 
   return products.map((p) => ({ ...p, onHand: onHandBy.get(p.id) ?? 0 }));
 }
+
+/**
+ * IDs of products that have been bought before at a real price. The simple
+ * receive flow only asks for a cost when a product is not in this set, because
+ * otherwise it reuses the last one.
+ */
+export async function getProductIdsWithKnownCost(): Promise<string[]> {
+  const rows = await prisma.batch.groupBy({
+    by: ["productId"],
+    where: { costPerUnit: { gt: 0 } },
+  });
+  return rows.map((r) => r.productId);
+}

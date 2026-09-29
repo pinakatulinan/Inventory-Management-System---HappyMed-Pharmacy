@@ -32,7 +32,7 @@ export interface PickerProduct {
 export function ProductPicker({
   products,
   name = "productId",
-  label = "Medicine",
+  label = "Item",
   defaultProductId,
   onSelect,
   error,
@@ -117,7 +117,7 @@ export function ProductPicker({
             className="shrink-0 rounded p-1 text-brand-800 hover:bg-brand-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X className="size-4" aria-hidden />
-            <span className="sr-only">Choose a different medicine</span>
+            <span className="sr-only">Choose a different item</span>
           </button>
         </div>
       </div>
@@ -217,7 +217,7 @@ export function ProductPicker({
 
         {open && query.trim() && matches.length === 0 ? (
           <div className="absolute z-50 mt-1 w-full rounded-lg border bg-popover px-3 py-4 text-center text-sm text-muted-foreground shadow-md">
-            No medicine matches &ldquo;{query.trim()}&rdquo;.
+            No item matches &ldquo;{query.trim()}&rdquo;.
           </div>
         ) : null}
       </div>

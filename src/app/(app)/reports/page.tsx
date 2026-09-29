@@ -205,7 +205,7 @@ export default async function ReportsPage({
           ) : (
             <DataTable caption="Stock written off in the period">
               <TableHead>
-                <Th>Medicine</Th>
+                <Th>Item</Th>
                 <Th align="right">Units</Th>
                 <Th align="right">Events</Th>
                 <Th align="right">Cost</Th>
@@ -299,7 +299,7 @@ export default async function ReportsPage({
           ) : (
             <DataTable caption="Products in stock with no dispensing in the period">
               <TableHead>
-                <Th>Medicine</Th>
+                <Th>Item</Th>
                 <Th align="right">On hand</Th>
                 <Th align="right">Tied-up cost</Th>
                 <Th>Nearest expiry</Th>

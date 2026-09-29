@@ -276,7 +276,7 @@ const expirySchema = z.object({
 /**
  * Correct the expiry date recorded against one batch.
  *
- * Expiry belongs to the batch rather than the product, because the same medicine
+ * Expiry belongs to the batch rather than the product, because the same item
  * sits on the shelf as several boxes with different dates. The product edit
  * screen therefore offers one field per batch instead of a single field for the
  * product as a whole.

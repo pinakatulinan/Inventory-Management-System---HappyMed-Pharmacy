@@ -6,7 +6,7 @@ import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 
-export const metadata: Metadata = { title: "New product" };
+export const metadata: Metadata = { title: "New item" };
 export const dynamic = "force-dynamic";
 
 export default async function NewProductPage() {
@@ -29,8 +29,8 @@ export default async function NewProductPage() {
   return (
     <>
       <PageHeader
-        title="New product"
-        description="Add a medicine to the catalogue. Stock is added separately, when a delivery arrives."
+        title="New item"
+        description="Add an item to the catalogue. Stock is added separately, when a delivery arrives."
       />
 
       <div className="max-w-3xl">

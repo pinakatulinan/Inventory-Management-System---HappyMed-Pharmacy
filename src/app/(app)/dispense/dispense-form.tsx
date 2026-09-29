@@ -40,7 +40,7 @@ interface PlannedAllocation {
  * here would be worse than showing none, because staff pick the physical carton
  * off the shelf from this list.
  */
-function planFEFO(batches: AvailableBatch[], quantity: number): PlannedAllocation[] {
+export function planFEFO(batches: AvailableBatch[], quantity: number): PlannedAllocation[] {
   const plan: PlannedAllocation[] = [];
   let remaining = quantity;
 

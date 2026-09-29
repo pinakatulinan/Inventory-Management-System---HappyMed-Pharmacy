@@ -28,7 +28,7 @@ import { getSettings } from "@/lib/settings";
 import { formatMoney, formatQuantity } from "@/lib/units";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Products" };
+export const metadata: Metadata = { title: "Items" };
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 25;
@@ -94,8 +94,8 @@ export default async function ProductsPage({
   return (
     <>
       <PageHeader
-        title="Products"
-        description="The medicine catalogue. Stock levels shown are dispensable units only."
+        title="Items"
+        description="The item catalogue. Stock levels shown are dispensable units only."
         actions={
           canManage ? (
             <>
@@ -103,7 +103,7 @@ export default async function ProductsPage({
               <Button asChild>
                 <Link href="/products/new">
                   <Plus aria-hidden />
-                  New product
+                  New item
                 </Link>
               </Button>
             </>
@@ -157,7 +157,7 @@ export default async function ProductsPage({
             description={
               params.q || params.category || params.stock
                 ? "Try clearing some filters."
-                : "Add the medicines you stock to get started."
+                : "Add the items you stock to get started."
             }
             action={
               canManage && !params.q ? (
@@ -171,7 +171,7 @@ export default async function ProductsPage({
           <>
             <DataTable caption="Product catalogue with current stock levels">
               <TableHead>
-                <Th>Medicine</Th>
+                <Th>Item</Th>
                 <Th>Category</Th>
                 <Th align="right">On hand</Th>
                 <Th>Stock</Th>

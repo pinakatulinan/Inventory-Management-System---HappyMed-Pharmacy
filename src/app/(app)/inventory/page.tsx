@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Boxes, PackagePlus } from "lucide-react";
+import { Boxes, PackagePlus, Scale } from "lucide-react";
 
 import { BatchRowActions } from "@/app/(app)/inventory/batch-actions";
 import { SearchInput } from "@/components/data-table/search-input";
@@ -32,7 +32,7 @@ import { getSettings } from "@/lib/settings";
 import { formatMoney, formatQuantity, toNumber } from "@/lib/units";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Stock on hand" };
+export const metadata: Metadata = { title: "Check stock" };
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 40;
@@ -109,6 +109,8 @@ export default async function InventoryPage({
 
   const canAdjust = can(user.role, "stock.adjust");
   const canDispose = can(user.role, "stock.dispose");
+  // Money columns are noise at the counter; owner and pharmacist keep them.
+  const showMoney = can(user.role, "reports.view");
 
   const buildHref = (statusKey: string) => {
     const next = new URLSearchParams();
@@ -121,20 +123,31 @@ export default async function InventoryPage({
   return (
     <>
       <PageHeader
-        title="Stock on hand"
-        description="Every batch in the pharmacy, soonest-expiring first."
+        title="Check stock"
+        description="Search for an item to see how many are left. Soonest-expiring first."
         actions={
-          can(user.role, "stock.receive") ? (
-            <Button asChild>
-              <Link href="/receive">
-                <PackagePlus aria-hidden />
-                Receive stock
-              </Link>
-            </Button>
-          ) : null
+          <>
+            {can(user.role, "stock.count") ? (
+              <Button asChild variant="outline">
+                <Link href="/inventory/fix-count">
+                  <Scale aria-hidden />
+                  Fix a count
+                </Link>
+              </Button>
+            ) : null}
+            {can(user.role, "stock.receive") ? (
+              <Button asChild>
+                <Link href="/receive">
+                  <PackagePlus aria-hidden />
+                  Receive stock
+                </Link>
+              </Button>
+            ) : null}
+          </>
         }
       />
 
+      {showMoney ? (
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Active batches" value={totals.activeBatches} />
         <StatCard label="Products stocked" value={totals.activeProducts} />
@@ -155,13 +168,14 @@ export default async function InventoryPage({
           href="/products?stock=low"
         />
       </section>
+      ) : null}
 
       <div className="mt-6">
         <TableCard
           toolbar={
             <>
               <SearchInput
-                placeholder="Search by lot number, medicine or code..."
+                placeholder="Search by lot number, item or code..."
                 className="sm:max-w-xs"
               />
 
@@ -198,11 +212,11 @@ export default async function InventoryPage({
             <>
               <DataTable caption="Batches currently held">
                 <TableHead>
-                  <Th>Medicine</Th>
+                  <Th>Item</Th>
                   <Th>Lot</Th>
                   <Th>Expires</Th>
                   <Th align="right">On hand</Th>
-                  <Th align="right">Value</Th>
+                  {showMoney ? <Th align="right">Value</Th> : null}
                   <Th>Status</Th>
                   <Th align="right">
                     <span className="sr-only">Actions</span>
@@ -272,13 +286,15 @@ export default async function InventoryPage({
                           </p>
                         </Td>
 
-                        <Td align="right" className="tabular">
-                          {formatMoney(
-                            batch.quantityOnHand * toNumber(batch.costPerUnit),
-                            settings.currency,
-                            settings.locale,
-                          )}
-                        </Td>
+                        {showMoney ? (
+                          <Td align="right" className="tabular">
+                            {formatMoney(
+                              batch.quantityOnHand * toNumber(batch.costPerUnit),
+                              settings.currency,
+                              settings.locale,
+                            )}
+                          </Td>
+                        ) : null}
 
                         <Td>
                           <span

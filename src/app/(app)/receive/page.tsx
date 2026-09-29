@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
-import { ReceiveForm } from "@/app/(app)/receive/receive-form";
+import { ReceiveWizard } from "@/app/(app)/receive/receive-wizard";
 import { PageHeader } from "@/components/page-header";
+import { can } from "@/lib/auth/rbac";
 import { requirePermission } from "@/lib/auth/session";
-import { getPickerProducts } from "@/lib/queries/picker";
+import {
+  getPickerProducts,
+  getProductIdsWithKnownCost,
+} from "@/lib/queries/picker";
 import { getSettings } from "@/lib/settings";
 
 export const metadata: Metadata = { title: "Receive stock" };
@@ -14,11 +19,12 @@ export default async function ReceivePage({
 }: {
   searchParams: Promise<{ product?: string }>;
 }) {
-  await requirePermission("stock.receive");
+  const user = await requirePermission("stock.receive");
 
-  const [settings, products, { product }] = await Promise.all([
+  const [settings, products, costKnownIds, { product }] = await Promise.all([
     getSettings(),
     getPickerProducts(),
+    getProductIdsWithKnownCost(),
     searchParams,
   ]);
 
@@ -26,15 +32,25 @@ export default async function ReceivePage({
     <>
       <PageHeader
         title="Receive stock"
-        description="Book in a delivery. Record the lot number and expiry date from each carton, not just the total."
+        description="A delivery arrived. Answer a few questions and it is added to stock."
       />
 
-      <div className="max-w-3xl">
-        <ReceiveForm
+      <div className="max-w-xl">
+        <ReceiveWizard
           products={products}
           currency={settings.currency}
+          costKnownIds={costKnownIds}
           defaultProductId={product}
         />
+
+        {can(user.role, "stock.advanced") ? (
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            Need to enter a lot number or cost by hand?{" "}
+            <Link href="/receive/advanced" className="font-medium underline">
+              Advanced form
+            </Link>
+          </p>
+        ) : null}
       </div>
     </>
   );

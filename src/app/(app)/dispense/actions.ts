@@ -71,7 +71,7 @@ export async function getAvailableBatchesAction(
 }
 
 const dispenseSchema = z.object({
-  productId: z.string().min(1, "Choose a medicine."),
+  productId: z.string().min(1, "Choose an item."),
   packs: z.coerce.number().int().min(0, "Cannot be negative."),
   looseUnits: z.coerce.number().int().min(0, "Cannot be negative."),
   reference: z.string().trim().max(120).optional().or(z.literal("")),
@@ -124,7 +124,7 @@ export async function dispenseAction(
         brandName: true,
       },
     });
-    if (!product) return actionError("That medicine no longer exists.");
+    if (!product) return actionError("That item no longer exists.");
     if (!product.isActive) {
       return actionError("That product is discontinued and cannot be dispensed.");
     }

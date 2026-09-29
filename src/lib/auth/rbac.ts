@@ -16,7 +16,11 @@ export const PERMISSIONS = {
 
   // Stock movements
   "stock.dispense": ["OWNER", "PHARMACIST", "STAFF"],
-  "stock.receive": ["OWNER", "PHARMACIST"],
+  "stock.receive": ["OWNER", "PHARMACIST", "STAFF"],
+  /** Correct a lot's count to what is actually on the shelf. */
+  "stock.count": ["OWNER", "PHARMACIST", "STAFF"],
+  /** The detailed forms: pick a specific lot, enter lot/cost by hand. */
+  "stock.advanced": ["OWNER", "PHARMACIST"],
   "stock.adjust": ["OWNER", "PHARMACIST"],
   "stock.dispose": ["OWNER", "PHARMACIST"],
 
@@ -61,7 +65,7 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   PHARMACIST:
     "Runs day-to-day inventory: receiving, adjustments, disposals, catalogue and purchase orders.",
   STAFF:
-    "Views stock and records dispensing. Cannot change the catalogue or adjust quantities.",
+    "Dispenses, receives deliveries, checks stock and fixes shelf counts. Cannot change the catalogue, write off stock or see reports.",
 };
 
 /** Thrown by the server-side guards; surfaces as a 403 page or an action error. */

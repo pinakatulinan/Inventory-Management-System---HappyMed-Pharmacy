@@ -57,6 +57,16 @@ enum DosageForm {
   OTHER
 }
 
+/// What kind of thing an item is. Only MEDICINE uses the medicine-specific
+/// fields (dosage form, prescription-only); everything else is a plain item.
+enum ItemType {
+  MEDICINE
+  SUPPLEMENT
+  PERSONAL_CARE
+  MEDICAL_SUPPLY
+  OTHER
+}
+
 enum BatchStatus {
   ACTIVE // dispensable
   QUARANTINED // past expiry or flagged - blocked from dispensing
@@ -191,6 +201,7 @@ model Supplier {
 model Product {
   id          String     @id @default(cuid())
   sku         String     @unique
+  itemType    ItemType   @default(MEDICINE)
   genericName String
   brandName   String?
   strength    String? // "500mg", "125mg/5mL"

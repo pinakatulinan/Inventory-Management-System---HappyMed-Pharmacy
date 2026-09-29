@@ -170,6 +170,7 @@ export async function getProductDetail(id: string) {
       brandName: true,
       strength: true,
       dosageForm: true,
+      itemType: true,
       description: true,
       baseUnit: true,
       packUnit: true,

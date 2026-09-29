@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { DosageForm } from "@/generated/prisma/enums";
+import type { DosageForm, ItemType } from "@/generated/prisma/enums";
 import { fromBaseUnits } from "@/lib/units";
 
 export const DOSAGE_FORM_LABELS: Record<DosageForm, string> = {
@@ -47,6 +47,14 @@ export const DOSAGE_FORM_LABELS: Record<DosageForm, string> = {
   SOLUTION: "Solution",
   LOZENGE: "Lozenge",
   OTHER: "Other",
+};
+
+export const ITEM_TYPE_LABELS: Record<ItemType, string> = {
+  MEDICINE: "Medicine",
+  SUPPLEMENT: "Vitamin or supplement",
+  PERSONAL_CARE: "Personal care",
+  MEDICAL_SUPPLY: "Medical supply",
+  OTHER: "Other item",
 };
 
 /** Sensible base unit per dosage form, offered as a suggestion only. */
@@ -70,6 +78,7 @@ const BASE_UNIT_SUGGESTION: Partial<Record<DosageForm, string>> = {
 
 export interface ProductFormValues {
   id: string;
+  itemType: ItemType;
   sku: string;
   genericName: string;
   brandName: string | null;
@@ -104,6 +113,11 @@ export function ProductForm({
     isEdit ? updateProductAction : createProductAction,
   );
 
+  const [itemType, setItemType] = useState<ItemType>(
+    product?.itemType ?? "MEDICINE",
+  );
+  const isMedicine = itemType === "MEDICINE";
+
   const [dosageForm, setDosageForm] = useState<DosageForm>(
     product?.dosageForm ?? "TABLET",
   );
@@ -129,6 +143,15 @@ export function ProductForm({
     }
   };
 
+  const onItemTypeChange = (value: string) => {
+    const next = value as ItemType;
+    setItemType(next);
+    if (isEdit) return;
+    setBaseUnit(
+      next === "MEDICINE" ? (BASE_UNIT_SUGGESTION[dosageForm] ?? "piece") : "piece",
+    );
+  };
+
   const reorderPreview =
     unitsPerPack > 1 && reorderPoint > 0
       ? fromBaseUnits(reorderPoint, unitsPerPack)
@@ -142,16 +165,41 @@ export function ProductForm({
       <div className="space-y-8 rounded-xl border bg-card p-6 shadow-xs">
         <FormSection
           title="Identity"
-          description="How this medicine is named and found."
+          description="How this item is named and found."
         >
+          <Field name="itemType" label="What kind of item is it?" required>
+            {(props) => (
+              <Select
+                name={props.name}
+                value={itemType}
+                onValueChange={onItemTypeChange}
+              >
+                <SelectTrigger id={props.id}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ITEM_TYPE_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </Field>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
               name="genericName"
               defaultValue={product?.genericName}
-              label="Generic name"
+              label={isMedicine ? "Generic name" : "Item name"}
               required
               error={err("genericName")}
-              hint="The active ingredient, e.g. Paracetamol."
+              hint={
+                isMedicine
+                  ? "The active ingredient, e.g. Paracetamol."
+                  : "What it is, e.g. Alcohol 70%, Face mask, Vitamin C."
+              }
             >
               {(props) => (
                 <Input {...props} required />
@@ -163,7 +211,11 @@ export function ProductForm({
               defaultValue={product?.brandName ?? ""}
               label="Brand name"
               error={err("brandName")}
-              hint="What is printed on the box, e.g. Biogesic."
+              hint={
+                isMedicine
+                  ? "What is printed on the box, e.g. Biogesic."
+                  : "The maker or label on the package, if any."
+              }
             >
               {(props) => (
                 <Input {...props} />
@@ -192,35 +244,39 @@ export function ProductForm({
             <Field
               name="strength"
               defaultValue={product?.strength ?? ""}
-              label="Strength"
+              label={isMedicine ? "Strength" : "Size"}
               error={err("strength")}
-              hint="e.g. 500mg, 125mg/5mL."
+              hint={isMedicine ? "e.g. 500mg, 125mg/5mL." : "e.g. 500mL, Large, 50 pcs."}
             >
               {(props) => (
                 <Input {...props} />
               )}
             </Field>
 
-            <Field name="dosageForm" label="Form" required error={err("dosageForm")}>
-              {(props) => (
-                <Select
-                  name={props.name}
-                  value={dosageForm}
-                  onValueChange={onDosageFormChange}
-                >
-                  <SelectTrigger id={props.id}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(DOSAGE_FORM_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </Field>
+            {isMedicine ? (
+              <Field name="dosageForm" label="Form" required error={err("dosageForm")}>
+                {(props) => (
+                  <Select
+                    name={props.name}
+                    value={dosageForm}
+                    onValueChange={onDosageFormChange}
+                  >
+                    <SelectTrigger id={props.id}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(DOSAGE_FORM_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </Field>
+            ) : (
+              <input type="hidden" name="dosageForm" value="OTHER" />
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -406,6 +462,7 @@ export function ProductForm({
 
         <FormSection title="Handling">
           <div className="space-y-3">
+            {isMedicine ? (
             <div className="flex items-start gap-3">
               <Checkbox
                 id="isRxOnly"
@@ -422,6 +479,7 @@ export function ProductForm({
                 </p>
               </div>
             </div>
+            ) : null}
 
             <div className="flex items-start gap-3">
               <Checkbox
@@ -451,7 +509,7 @@ export function ProductForm({
             Cancel
           </Link>
         </Button>
-        <SubmitButton>{isEdit ? "Save changes" : "Create product"}</SubmitButton>
+        <SubmitButton>{isEdit ? "Save changes" : "Create item"}</SubmitButton>
       </div>
       </form>
     </FormValues>

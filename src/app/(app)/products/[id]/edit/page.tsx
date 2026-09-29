@@ -15,7 +15,7 @@ import { getSettings } from "@/lib/settings";
 /** Written by the opening-stock import; not a date anyone read off a box. */
 const PLACEHOLDER_EXPIRY = "2099-12-31";
 
-export const metadata: Metadata = { title: "Edit product" };
+export const metadata: Metadata = { title: "Edit item" };
 export const dynamic = "force-dynamic";
 
 export default async function EditProductPage({
@@ -32,6 +32,7 @@ export default async function EditProductPage({
       where: { id },
       select: {
         id: true,
+        itemType: true,
         sku: true,
         genericName: true,
         brandName: true,
@@ -96,6 +97,7 @@ export default async function EditProductPage({
         <ProductForm
           product={{
             id: product.id,
+            itemType: product.itemType,
             sku: product.sku,
             genericName: product.genericName,
             brandName: product.brandName,

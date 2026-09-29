@@ -154,7 +154,7 @@ export async function buildExpiryDigest(
         ? `<h2 style="font-size:14px;margin:0 0 8px;">Batches to review</h2>
     <table role="presentation" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:24px;">
       <thead><tr style="text-align:left;color:#64748b;font-size:12px;">
-        <th style="padding:6px 10px;">Medicine</th><th style="padding:6px 10px;">Lot</th>
+        <th style="padding:6px 10px;">Item</th><th style="padding:6px 10px;">Lot</th>
         <th style="padding:6px 10px;text-align:right;">On hand</th>
         <th style="padding:6px 10px;">Expires</th><th style="padding:6px 10px;">Status</th>
       </tr></thead>
@@ -168,7 +168,7 @@ export async function buildExpiryDigest(
         ? `<h2 style="font-size:14px;margin:0 0 8px;">Needs reordering</h2>
     <table role="presentation" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:24px;">
       <thead><tr style="text-align:left;color:#64748b;font-size:12px;">
-        <th style="padding:6px 10px;">Medicine</th><th style="padding:6px 10px;">Supplier</th>
+        <th style="padding:6px 10px;">Item</th><th style="padding:6px 10px;">Supplier</th>
         <th style="padding:6px 10px;text-align:right;">On hand</th>
       </tr></thead>
       <tbody>${lowStockRows}</tbody>

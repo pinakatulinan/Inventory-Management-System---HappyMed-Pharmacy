@@ -14,8 +14,10 @@ import {
 import { EmptyState } from "@/components/empty-state";
 import { ExpiryBadge } from "@/components/expiry-badge";
 import { PageHeader } from "@/components/page-header";
+import { QuickActions } from "@/components/quick-actions";
 import { StatCard } from "@/components/stat-card";
 import { Button } from "@/components/ui/button";
+import { can } from "@/lib/auth/rbac";
 import { requireUser } from "@/lib/auth/session";
 import { formatCivilDate, formatRelative } from "@/lib/dates";
 import {
@@ -40,6 +42,60 @@ function firstName(name: string): string {
 export default async function DashboardPage() {
   const user = await requireUser();
   const settings = await getSettings();
+
+  // Counter staff get four big buttons and a one-line health check, nothing else.
+  if (!can(user.role, "reports.view")) {
+    const [expiry, totals] = await Promise.all([
+      getExpirySummary(settings),
+      getInventoryTotals(),
+    ]);
+    const needAttention = expiry.expired + expiry.critical;
+    const lowCount = totals.lowStockProducts + totals.outOfStockProducts;
+
+    return (
+      <div className="mx-auto max-w-3xl">
+        <PageHeader
+          title={`Good day, ${firstName(user.name)}`}
+          description="What do you want to do?"
+        />
+        <QuickActions role={user.role} />
+
+        {needAttention > 0 || lowCount > 0 ? (
+          <ul className="mt-6 space-y-2 text-sm">
+            {needAttention > 0 ? (
+              <li>
+                <Link
+                  href="/expiry"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-status-critical-border bg-status-critical-soft px-4 py-3 text-status-critical"
+                >
+                  <span>
+                    <strong>{needAttention}</strong> batch
+                    {needAttention === 1 ? "" : "es"} expired or expiring very
+                    soon
+                  </span>
+                  <ArrowRight className="size-4 shrink-0" aria-hidden />
+                </Link>
+              </li>
+            ) : null}
+            {lowCount > 0 ? (
+              <li>
+                <Link
+                  href="/inventory?filter=low"
+                  className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
+                >
+                  <span>
+                    <strong>{lowCount}</strong> item
+                    {lowCount === 1 ? " is" : "s are"} low or out of stock
+                  </span>
+                  <ArrowRight className="size-4 shrink-0" aria-hidden />
+                </Link>
+              </li>
+            ) : null}
+          </ul>
+        ) : null}
+      </div>
+    );
+  }
 
   // Independent queries, so run them together rather than in sequence.
   const [expiry, totals, expiringBatches, lowStock, movements] =
@@ -68,6 +124,10 @@ export default async function DashboardPage() {
           </Button>
         }
       />
+
+      <div className="mb-6">
+        <QuickActions role={user.role} />
+      </div>
 
       {/* Headline numbers. Expiry first - it is the reason this system exists. */}
       <section
@@ -159,7 +219,7 @@ export default async function DashboardPage() {
                 <thead>
                   <tr className="border-b text-left text-xs text-muted-foreground">
                     <th scope="col" className="px-5 py-2.5 font-medium">
-                      Medicine
+                      Item
                     </th>
                     <th scope="col" className="px-3 py-2.5 font-medium">
                       Lot
